@@ -6,23 +6,25 @@ import time
 import RPi.GPIO as GPIO
 import random
 import math
-GPIO.cleanup()
 
-# Declare the GPIO settings
-GPIO.setmode(GPIO.BOARD)
+def prepareBoard():
+    GPIO.cleanup()
 
-## equivalent to BCM pin 25
-sensor = 22
+    # Declare the GPIO settings
+    GPIO.setmode(GPIO.BOARD)
 
-GPIO.setmode(GPIO.BOARD)
-# GPIO.setup(sensor, GPIO.IN)
+    ## equivalent to BCM pin 25
+    sensor = 22
+
+    GPIO.setmode(GPIO.BOARD)
+    # GPIO.setup(sensor, GPIO.IN)
 
 
-# Set the filename and path for the sound card in use (See: https://howchoo.com/g/mmnhmti2zjz/how-to-detect-that-audio-is-currently-being-output-in-linux-and-use-it-to-call-a-program#create-an-audio-output-monitor-script)
-soundcard_status_file = '/proc/asound/card2/pcm0p/sub0/status'
+    # Set the filename and path for the sound card in use (See: https://howchoo.com/g/mmnhmti2zjz/how-to-detect-that-audio-is-currently-being-output-in-linux-and-use-it-to-call-a-program#create-an-audio-output-monitor-script)
+    soundcard_status_file = '/proc/asound/card2/pcm0p/sub0/status'
 
-# Turn off GPIO warnings caused by us declaring our pins outside of the start_furby and stop_furby functions
-GPIO.setwarnings(True)
+    # Turn off GPIO warnings caused by us declaring our pins outside of the start_furby and stop_furby functions
+    GPIO.setwarnings(True)
 
 clockwise = False
 
@@ -335,6 +337,7 @@ class Furby:
 
 if __name__ == '__main__':
     try:
+        prepareBoard()
         f = Furby()
 
         #f.start()
@@ -372,7 +375,7 @@ if __name__ == '__main__':
         f.moveTo(10)
         f.moveTo(90)
 
-        for x in range(0, 100, 10):
+        for x in range(0, 100, 5):
             raw_input("Press Enter to continue...")
             f.moveTo(x)
 
