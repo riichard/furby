@@ -24,4 +24,4 @@ Notes 27-12-2021$
 	- face does not seal tight
 	- does wrap around bottom
 	- cables nearly fit, should probably cut them trough the skin
-
+	- board moves when pushing cables, glue/tape does not hold. See if it can be wrapped with tiewrap
