@@ -8,7 +8,9 @@ import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BOARD)
 
 # Turn off GPIO warnings caused by us declaring our pins outside of the start_furby and stop_furby functions
-GPIO.setwarnings(False)
+GPIO.setwarnings(True)
+
+GPIO.cleanup()
 
 def stop_furby():
     # Reset all the GPIO pins by setting them to LOW

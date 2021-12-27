@@ -1,0 +1,27 @@
+Notes 27-12-2021$
+- created git repo
+- IR LED should be connected.
+	-checked LED voltage, seems to outpult 5v on multimeter, but is actually auto adjusting to LED voltage
+	- should connect wires and hot-glue them solid
+
+- changed button pins to different layout. 
+	see button.py
+	when button is pressed, callback can be looped when gpio loops to ground
+- motor pwm controller works, orange/yellow wires should be soldered
+- zipties are amazing to keep the wires together
+- should solder speaker wires
+
+- pin on bottom pokes at pizero
+	- move pizero
+	- or remove poke sticko
+	- can be latched with tie-wrap
+
+- cannot keep furby steady. fix red stick on bottom with a aluminium rod
+	- furby remains steady enough
+	- can be latched with tie-wrap
+
+- putting fur over furby
+	- face does not seal tight
+	- does wrap around bottom
+	- cables nearly fit, should probably cut them trough the skin
+
