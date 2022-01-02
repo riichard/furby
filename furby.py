@@ -4,6 +4,7 @@
 import time
 import RPi.GPIO as GPIO
 import random
+import math
 GPIO.cleanup()
 
 # Declare the GPIO settings
@@ -64,7 +65,7 @@ def start_furby():
 
     GPIO.add_event_detect(CAL,GPIO.RISING,callback=cal_callback, bouncetime=200) 
     GPIO.add_event_detect(TONGUE,GPIO.RISING,callback=tongue_callback, bouncetime=200) 
-    GPIO.add_event_detect(IR,GPIO.RISING,callback=ir_callback) 
+    GPIO.add_event_detect(IR,GPIO.RISING,callback=ir_callback, bouncetime=20) 
 
     # Disable STBY (standby)
     GPIO.output(STDBY, GPIO.HIGH)
@@ -129,8 +130,10 @@ def foo():
 
 class Furby:
     def __init__(self):
-        self.pos = 0
-        self.maxPos = 100
+        self.pos = 1
+        self.maxPos = 0
+        self.maxError = 30
+        self.speed = 70
         self.clockwise = True
         self.calibrated = False
         self.des = 0
@@ -150,17 +153,18 @@ class Furby:
 
         GPIO.add_event_detect(CAL,GPIO.RISING,callback=self.calCallback, bouncetime=200) 
         GPIO.add_event_detect(TONGUE,GPIO.RISING,callback=self.tongueCallback, bouncetime=200) 
-        GPIO.add_event_detect(IR,GPIO.RISING,callback=self.irCallback, bouncetime=200) 
+        GPIO.add_event_detect(IR,GPIO.RISING,callback=self.irCallback) 
 
         self.setDirection(True)
 
     def start(self):
         print("starting")
         GPIO.output(STDBY, GPIO.HIGH)
-        self.pwm.start(60)
+        self.pwm.start(self.speed)
 
     def stop(self):
-        print("stopping")
+        print("stopping at ", self.pos)
+        print("reached des ", self.des, " by error of ", self.des - self.pos)
         self.pwm.stop()
         GPIO.output(STDBY, GPIO.LOW)
         print("maxpos", self.maxPos)
@@ -177,26 +181,35 @@ class Furby:
         self.clockwise = clockwise
     
     def setSpeed(self, speed): # 0 < speed < 100
-        pwm.ChangeDutyCycle(speed)
+        self.speed = speed
+        self.pwm.ChangeDutyCycle(speed)
 
     def calCallback(self, pin):
         print("cal callback " + str(self.pos))
         self.calibrated = True
         self.pos = 0
+        print("-----POSITION-RESET----")
 
     def irCallback(self, pin):
+        print("ir callback " + str(self.pos))
         if self.maxPos < self.pos:
             self.maxPos = self.pos
 
         if self.clockwise:
             self.pos += 1
+            """
             if self.pos >= self.des:
+                print("reached destination of "+str(self.des))
                 self.stop()
+            """
         else:
             self.pos -= 1
+            """
             if self.pos <= self.des:
+                print("reached destination of "+str(self.des))
                 self.stop()
-        # print("ir callback " + str(self.pos))
+            """
+
 
     def tongueCallback(self, pin):
         print("tongue callback")
@@ -207,6 +220,9 @@ class Furby:
 
         self.des = des
         self.start()
+        while self.pos > des:
+            time.sleep(0.0001)
+        self.stop()
 
     def moveUp(self, des):
         print("moving up, "+str(des))
@@ -215,10 +231,15 @@ class Furby:
 
         self.des = des
         self.start()
+        
+        while self.pos < des:
+            time.sleep(0.0001)
+        self.stop()
         print("destination reached")
 
-    def moveTo(self, des):
-        print(self.pos, des)
+    def moveTo(self, angle):
+        des = min(math.floor((self.maxPos/100)*angle), (self.maxPos - self.maxError))
+        print('moveto', angle, self.pos, des)
         if des > self.pos:
             self.moveUp(des)
         else:
@@ -226,9 +247,17 @@ class Furby:
 
     def calibrate(self):
         print("calibrating")
-        self.pos = -500
-        self.moveTo(-10)
-        print("calibrated")
+        # self.pos = 0
+        self.des = 0
+        self.setDirection(True)
+        self.start()
+        time.sleep(2)
+        self.stop()
+        time.sleep(1)
+        print("has max pos", self.maxPos)
+        self.moveTo(10)
+        self.moveTo(1)
+        print("==========CALIBRATED===========")
         """
         self.setDirection(False)
         self.calibrated = False
@@ -250,6 +279,31 @@ if __name__ == '__main__':
         #time.sleep(10)
         #f.stop()
         f.calibrate()
+        print("calibrate command finished")
+        print("wait..")
+        #time.sleep(10)
+
+
+        print(f.pos, f.maxPos, f.des)
+        f.moveTo(30)
+        f.moveTo(1)
+        f.moveTo(60)
+        #time.sleep(1)
+        f.moveTo(1)
+        #time.sleep(1)
+        f.moveTo(60)
+        #time.sleep(1)
+        f.moveTo(90)
+        f.setSpeed(100)
+        for i in range(3):
+            f.moveTo(70)
+            f.moveTo(75)
+        f.moveTo(90)
+        f.setSpeed(30)
+        for i in range(3):
+            f.moveTo(20)
+            f.moveTo(15)
+        f.moveTo(100)
 
         """
         #r = random.randint(0,f.maxPos)
