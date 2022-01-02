@@ -28,6 +28,31 @@ AIN1 = 29 # PIN 5
 AIN2 = 31 # PIN 6
 PWMA = 7 # PIN 4
 STDBY = 13 # PIN 27
+IR = 18 # 24
+CAL = 36 # 16
+PWMA_TEST = 32 # PWM0 BCM12
+TONGUE = 33
+
+# GPIO.setup(IR, GPIO.IN)
+GPIO.setup(IR,GPIO.IN,pull_up_down=GPIO.PUD_UP)
+GPIO.setup(CAL,GPIO.IN,pull_up_down=GPIO.PUD_UP)
+GPIO.setup(TONGUE,GPIO.IN,pull_up_down=GPIO.PUD_UP)
+
+GPIO.setup(PWMA_TEST, GPIO.OUT)
+pwm = GPIO.PWM(PWMA_TEST, 300)
+
+ir_ticks = 0
+def ir_callback(channel):
+    print("IR Tick")
+
+cal_ticks = 0
+def cal_callback(channel):
+    # cal_ticks+=1
+    print("CAL Tick: " + str(channel))
+
+def tongue_callback(channel):
+    print("TONGUE PRESSED")
+    pwm.ChangeDutyCycle(0)
 
 def start_furby():
     if clockwise:
@@ -40,13 +65,19 @@ def start_furby():
     # GPIO.output(29, GPIO.HIGH) # Set pin 5 to test functionality
 
     # Set the motor speed
-    GPIO.output(PWMA, GPIO.HIGH) # Set PWMA
+    #GPIO.output(PWMA, GPIO.HIGH) # Set PWMA
+    # pwm.ChangeDutyCycle(50)
+    pwm.start(40)
+    #GPIO.output(PWMA_TEST, GPIO.HIGH) # Set AIN2
+
+    GPIO.add_event_detect(CAL,GPIO.RISING,callback=cal_callback, bouncetime=200) 
+    GPIO.add_event_detect(TONGUE,GPIO.RISING,callback=tongue_callback, bouncetime=200) 
+    GPIO.add_event_detect(IR,GPIO.RISING,callback=ir_callback) 
 
     # Disable STBY (standby)
     GPIO.output(STDBY, GPIO.HIGH)
     print("Running")
-    while True:
-        time.sleep(1000)
+    time.sleep(1000)
 
 
 def stop_furby():
@@ -70,6 +101,7 @@ def main():
 
     count = 0
     start_furby()
+
 
 def foo():
     if GPIO.input(sensor):
@@ -109,8 +141,9 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("Cleanup by keyboard interrupt")
         GPIO.cleanup()
-    except:
+    except Exception as e:
         print("uncaught error")
+        print(e)
     finally:
         print("Cleanup")
         GPIO.cleanup()
