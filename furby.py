@@ -48,6 +48,9 @@ def tongue_callback(channel):
     print("TONGUE PRESSED")
     pwm.ChangeDutyCycle(0)
 
+
+
+
 def start_furby():
     if clockwise:
         # Drive the motor clockwise
@@ -137,8 +140,15 @@ class Furby:
         self.speed = 70
         self.clockwise = True
         self.calibrated = False
+        self.calibrating = False
         self.des = 0
         self.desPerc = 0
+
+        GPIO.cleanup()
+
+        # Declare the GPIO settings
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setmode(GPIO.BOARD)
 
         # GPIO.setup(IR, GPIO.IN)
         GPIO.setup(IR,GPIO.IN,pull_up_down=GPIO.PUD_UP)
@@ -166,7 +176,7 @@ class Furby:
 
     def stop(self):
         print("stopping at ", self.pos)
-        print("reached des ", self.des, self.desPerc, " by error of ", self.des - self.pos)
+        print("-------------reached des ", self.des, self.desPerc, " by error of ", self.des - self.pos)
         self.pwm.stop()
         GPIO.output(STDBY, GPIO.LOW)
         print("maxpos", self.maxPos)
@@ -187,13 +197,16 @@ class Furby:
         self.pwm.ChangeDutyCycle(speed)
 
     def calCallback(self, pin):
+        print('calibration pin pressed')
         print("cal callback " + str(self.pos))
         self.calibrated = True
+        measuredPosition = self.pos
         self.pos = 0
-        print("-----POSITION-RESET----")
+        print("-----POSITION-RESET----", measuredPosition)
+
 
     def irCallback(self, pin):
-        print("ir callback " + str(self.pos))
+        print "[" + str(self.pos)+"]",
         if self.maxPos < self.pos:
             self.maxPos = self.pos
 
@@ -240,13 +253,21 @@ class Furby:
         print("destination reached")
 
     def moveTo(self, angle):
-        des = min(math.floor((self.maxPos/100)*angle), (self.maxPos - self.maxError)) # TODO set maxError smarter based on better maxPos averaging
-        print('moveto', angle, self.pos, des)
-        deltaWithoutCal = self.pos - des
+        # Calculate the destination based on the angle (percentile)
+        # and avoid exceeding the maximum position-error range
+        des = min(
+            math.floor((self.maxPos/100)*angle),
+            (self.maxPos - self.maxError)
+        ) # TODO set maxError smarter based on better maxPos averaging
+
+        # With cal = cycle can move over the hinge that sets the position to 0
+        # Without cal = move will happen without going over the hinge
+        print('--------------moveto', angle, self.pos, des)
+        deltaWithoutCal = abs(self.pos - des)
         deltaWithCal = min(
-            ((des + self.maxPos) - self.pos), # angle80 -> angle10 = (100 + 10) - 80 = 30
-            ((self.maxPos + self.pos) - des) # angle10 -> angle80 = (100 + 10) - 80 = 30
-        );
+            abs(((des + self.maxPos) - self.pos)), # angle80 -> angle10 = (100 + 10) - 80 = 30
+            abs(((self.maxPos + self.pos) - des)) # angle10 -> angle80 = (100 + 10) - 80 = 30
+        )
         print('delta with cal', deltaWithCal)
         print('delta without cal', deltaWithoutCal)
         self.desPerc = angle
@@ -276,11 +297,15 @@ class Furby:
         print('finished move to angle ', angle)
                 
 
+    def printMaxPos(self):
+        print(self.maxPos)
+
 
     def calibrate(self):
         print("calibrating")
         # self.pos = 0
         self.des = 0
+        self.calibrating = True
         self.setDirection(True)
         self.start()
         time.sleep(2)
@@ -288,7 +313,12 @@ class Furby:
         time.sleep(1)
         print("has max pos", self.maxPos)
         self.moveTo(10)
-        self.moveTo(1)
+        self.moveTo(50)
+        self.moveTo(80)
+        self.moveTo(90)
+        self.moveTo(30)
+        self.calibrating = False
+        print('MaxPos =', self.maxPos)
         print("==========CALIBRATED===========")
         """
         self.setDirection(False)
@@ -313,7 +343,6 @@ if __name__ == '__main__':
         f.calibrate()
         print("calibrate command finished")
         print("wait..")
-        #time.sleep(10)
 
 
         print(f.pos, f.maxPos, f.des)
@@ -325,8 +354,66 @@ if __name__ == '__main__':
         """
         
         print('---------------------------------------ready')
+        raw_input("Press Enter to continue...")
+
         f.moveTo(90)
+        raw_input("Press Enter to continue...")
+
         f.moveTo(10)
+        raw_input("Press Enter to continue...")
+        
+        f.moveTo(90)
+        raw_input("Press Enter to continue...")
+        f.moveTo(10)
+
+        raw_input("Press Enter to continue...")
+        f.moveTo(90)
+        raw_input("Press Enter to continue...")
+        f.moveTo(10)
+        f.moveTo(90)
+
+        for x in range(0, 100, 10):
+            raw_input("Press Enter to continue...")
+            f.moveTo(x)
+
+        """
+        raw_input("Press Enter to continue...")
+        f.moveTo(30)
+        raw_input("Press Enter to continue...")
+        " Move from 30 to 10 didn't go as smoothly.
+        " it went beyond the destination, while it was breaking, and pressed the reset button
+        f.moveTo(10)
+        raw_input("Press Enter to continue...")
+        f.moveTo(20)
+        raw_input("Press Enter to continue...")
+        f.moveTo(30)
+        raw_input("Press Enter to continue...")
+        f.moveTo(40)
+        raw_input("Press Enter to continue...")
+        f.moveTo(50)
+        raw_input("Press Enter to continue...")
+        f.moveTo(60)
+        raw_input("Press Enter to continue...")
+        f.moveTo(70)
+        raw_input("Press Enter to continue...")
+        f.moveTo(80)
+        raw_input("Press Enter to continue...")
+        f.moveTo(90)
+        raw_input("Press Enter to continue...")
+        f.moveTo(100)
+        """
+
+        print("testing talk mode")
+        raw_input("Press Enter to continue...")
+        for x in range(6):
+            f.moveTo(80)
+            f.moveTo(90)
+            f.moveTo(10)
+            f.moveTo(90)
+
+
+        f.printMaxPos()
+
         """
         
         

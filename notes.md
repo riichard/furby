@@ -16,6 +16,16 @@ f.moveTo(90)
 - When doing a moveTo(90) and moveTo(10) it doest'n move to the desired 10% beyond calClick
 
 
+Action items:
+0. Test with and without furr
+1. Get a stable reproducable position at pos=10%. After moving to 90%
+2. Get stable reproducable position at 90%
+
+# Reproduce back to 10
+- This seems to work already. But occasionally breaks (after the program was interrupted?). Perhaps check the calibration function at the start if this is extended enough 
+- Calibration was indeed not good enough. Sometimes maxPos was 350 and all positions were out of place. Fixed the calibration a bit, made a loop Still not good enough.
+- Positions seem stable enough once the maxPos is set correctly
+
 
 # Notes 2021-12-07
 - created git repo
