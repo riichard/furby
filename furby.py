@@ -308,7 +308,7 @@ class Furby:
         self.calibrating = True
         self.setDirection(True)
         self.start()
-        time.sleep(2)
+        time.sleep(5)
         self.stop()
         time.sleep(1)
         print("has max pos", self.maxPos)
@@ -316,7 +316,7 @@ class Furby:
         self.moveTo(50)
         self.moveTo(80)
         self.moveTo(90)
-        self.moveTo(30)
+        self.moveTo(10)
         self.calibrating = False
         print('MaxPos =', self.maxPos)
         print("==========CALIBRATED===========")
@@ -411,6 +411,8 @@ if __name__ == '__main__':
             f.moveTo(10)
             f.moveTo(90)
 
+        raw_input("Press Enter to continue...")
+        f.moveTo(10)
 
         f.printMaxPos()
 
