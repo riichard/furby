@@ -1,4 +1,13 @@
-Notes 27-12-2021$
+# Notes 2022-07-17
+- Checked in moveTo commands to move to a percentile
+- Tried installing notebooks to better debug. But everything still runs python 2.7. A reinstall of OS is probably easier
+- Physical components and movement look ok
+- Seems to move a whole clock forward instead of the shortest path
+- 
+
+
+
+# Notes 2021-12-07
 - created git repo
 - IR LED should be connected.
 	-checked LED voltage, seems to outpult 5v on multimeter, but is actually auto adjusting to LED voltage

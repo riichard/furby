@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Import required modules
+# from abc import update_abstractmethods
 import time
 import RPi.GPIO as GPIO
 import random
@@ -137,6 +138,7 @@ class Furby:
         self.clockwise = True
         self.calibrated = False
         self.des = 0
+        self.desPerc = 0
 
         # GPIO.setup(IR, GPIO.IN)
         GPIO.setup(IR,GPIO.IN,pull_up_down=GPIO.PUD_UP)
@@ -164,7 +166,7 @@ class Furby:
 
     def stop(self):
         print("stopping at ", self.pos)
-        print("reached des ", self.des, " by error of ", self.des - self.pos)
+        print("reached des ", self.des, self.desPerc, " by error of ", self.des - self.pos)
         self.pwm.stop()
         GPIO.output(STDBY, GPIO.LOW)
         print("maxpos", self.maxPos)
@@ -238,12 +240,42 @@ class Furby:
         print("destination reached")
 
     def moveTo(self, angle):
-        des = min(math.floor((self.maxPos/100)*angle), (self.maxPos - self.maxError))
+        des = min(math.floor((self.maxPos/100)*angle), (self.maxPos - self.maxError)) # TODO set maxError smarter based on better maxPos averaging
         print('moveto', angle, self.pos, des)
-        if des > self.pos:
-            self.moveUp(des)
+        deltaWithoutCal = self.pos - des
+        deltaWithCal = min(
+            ((des + self.maxPos) - self.pos), # angle80 -> angle10 = (100 + 10) - 80 = 30
+            ((self.maxPos + self.pos) - des) # angle10 -> angle80 = (100 + 10) - 80 = 30
+        );
+        print('delta with cal', deltaWithCal)
+        print('delta without cal', deltaWithoutCal)
+        self.desPerc = angle
+
+        if deltaWithoutCal < deltaWithCal:
+            print("moving without cal")
+            if des > self.pos:
+                self.moveUp(des)
+            else:
+                self.moveDown(des)
         else:
-            self.moveDown(des)
+            print("moving with cal, ")
+            if des < self.pos:
+                # make current pos negative based on maxpos
+                self.pos = self.pos - self.maxPos
+                # pos will reset to 0
+                # move up instead of down
+                self.moveUp(des)
+                print('finished moving up', self.pos)
+            else:
+                # make des negative based on maxpos
+                nDes = des - self.maxPos
+                # pos will reset to 0
+                # move down instead of up
+                self.moveDown(nDes)
+                print('finished moving down', self.pos)
+        print('finished move to angle ', angle)
+                
+
 
     def calibrate(self):
         print("calibrating")
@@ -285,10 +317,19 @@ if __name__ == '__main__':
 
 
         print(f.pos, f.maxPos, f.des)
+        """
         f.moveTo(30)
         f.moveTo(1)
         f.moveTo(60)
-        #time.sleep(1)
+        time.sleep(1)
+        """
+        
+        print('---------------------------------------ready')
+        f.moveTo(90)
+        f.moveTo(10)
+        """
+        
+        
         f.moveTo(1)
         #time.sleep(1)
         f.moveTo(60)
@@ -304,6 +345,9 @@ if __name__ == '__main__':
             f.moveTo(20)
             f.moveTo(15)
         f.moveTo(100)
+
+        """
+
 
         """
         #r = random.randint(0,f.maxPos)
