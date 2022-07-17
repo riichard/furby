@@ -3,7 +3,17 @@
 - Tried installing notebooks to better debug. But everything still runs python 2.7. A reinstall of OS is probably easier
 - Physical components and movement look ok
 - Seems to move a whole clock forward instead of the shortest path
-- 
+- Can run interactively with the classic python interactive shell
+- ```
+python
+import furby
+f = furby.Furby()
+f.calibrate()
+f.moveTo(10)
+f.moveTo(90)
+```
+- When doing a moveTo(10) after each other, it moves back/forth on the same position
+- When doing a moveTo(90) and moveTo(10) it doest'n move to the desired 10% beyond calClick
 
 
 
