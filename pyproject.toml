@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "furby"
+version = "0.1.0"
+description = "Furby AI voice assistant — Raspberry Pi hardware + Claude + OpenAI"
+authors = []
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+anthropic = ">=0.40.0"
+openai = ">=1.0.0"
+pyyaml = ">=6.0"
+numpy = ">=1.24.0"
+pyaudio = ">=0.2.14"
+python-dotenv = ">=1.0.0"
+
+[tool.poetry.dependencies.RPi-GPIO]
+version = ">=0.7.1"
+optional = true
+
+[tool.poetry.extras]
+pi = ["RPi-GPIO"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

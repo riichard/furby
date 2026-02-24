@@ -1,0 +1,48 @@
+# Map named expressions to dial positions (0–100%)
+# Run calibrate_expressions.py to discover your exact positions
+
+expressions:
+  neutral:
+    position: 50
+    description: "Neutral resting face"
+  happy:
+    position: 30
+    description: "Happy, raised brows"
+  sad:
+    position: 60
+    description: "Sad, drooping"
+  surprised:
+    position: 10
+    description: "Wide eyed surprised"
+  curious:
+    position: 40
+    description: "Curious, slightly raised"
+  sleepy:
+    position: 90
+    description: "Tired/sleepy"
+  talk_open:
+    position: 20
+    description: "Mouth open (lip sync)"
+  talk_closed:
+    position: 70
+    description: "Mouth closed (lip sync)"
+
+idle:
+  base_expression: neutral
+  drift_range: 5         # ±5% drift around base position
+  drift_interval_s: 2.5  # seconds between small drifts
+
+lip_sync:
+  open: talk_open
+  closed: talk_closed
+  ms_per_syllable: 160   # tune to TTS speech rate
+
+# Emotion-to-expression mapping
+# Claude returns one of these emotions; map it to an expression name above
+emotion_map:
+  happy: happy
+  sad: sad
+  surprised: surprised
+  curious: curious
+  sleepy: sleepy
+  neutral: neutral
