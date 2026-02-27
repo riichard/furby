@@ -18,6 +18,7 @@ from voice import AudioIO
 from ai import ClaudeConversation
 from memory import MemoryManager
 from music import MusicPlayer
+from hue import HueLights
 
 
 def check_env():
@@ -59,7 +60,8 @@ def main():
     expr = FurbyExpressionManager(furby)
     audio = AudioIO()
     memory = MemoryManager()
-    ai = ClaudeConversation(memory=memory)
+    hue = HueLights()
+    ai = ClaudeConversation(memory=memory, hue=hue)
     music = MusicPlayer()
 
     print("[main] Starting idle animation...")
@@ -88,17 +90,27 @@ def main():
                 action = result["action"]
                 music_query = result["music_query"]
                 clip_query = result["clip_query"]
+                lights_cmd = result["lights"]
 
-                # 4. Synthesize TTS
+                # 4. Trigger lights immediately (non-blocking thread in hue.py)
+                #    — fires while TTS is being synthesized so lights change
+                #    at the same time Furby starts speaking
+                if lights_cmd:
+                    hue.set_lights(
+                        on=lights_cmd["state"] == "on",
+                        room=lights_cmd["room"],
+                    )
+
+                # 5. Synthesize TTS
                 tts_bytes = audio.synthesize(response_text)
 
-                # 5. Stop any currently playing music before speaking
+                # 6. Stop any currently playing music before speaking
                 music.stop()
 
-                # 6. Animate speech (plays audio + lip sync, then restores idle)
+                # 7. Animate speech (plays audio + lip sync, then restores idle)
                 expr.animate_speech(response_text, tts_bytes, emotion)
 
-                # 7. Post-speech action (dance / music / both)
+                # 8. Post-speech action (dance / music / both)
                 dispatch_action(action, music_query, clip_query, expr, music)
 
             except KeyboardInterrupt:

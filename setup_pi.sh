@@ -59,7 +59,7 @@ sudo apt-get install -y portaudio19-dev python3-pyaudio ffmpeg
 # 4. Install Python dependencies
 # ---------------------------------------------------------------------------
 echo "[4/5] Installing Python packages..."
-pip3 install --break-system-packages anthropic openai pyyaml numpy python-dotenv yt-dlp
+pip3 install --break-system-packages anthropic openai pyyaml numpy python-dotenv yt-dlp phue
 
 # ---------------------------------------------------------------------------
 # 5. Create memory directory and install nightly summarize cron job

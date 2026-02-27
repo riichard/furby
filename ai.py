@@ -62,30 +62,48 @@ When to use actions (be creative, not mechanical):
 - Play an unexpected/ironic song in response to a topic
 """
 
+_LIGHTS_INSTRUCTIONS = """\
+You can control the Hue smart lights in the house using the "lights" field.
+This is INDEPENDENT of "action" — you can dance AND change lights at the same time.
+
+"lights" format:
+- Turn everything off:  {{"state": "off", "room": null}}
+- Turn bedroom on:      {{"state": "on",  "room": "bedroom"}}
+- No light change:      null
+
+Use lights when asked, but also spontaneously:
+- Turn off lights dramatically before a spooky movie quote
+- Flick lights on when excited ("LET THERE BE LIGHT!")
+- Turn everything off as a prank, then immediately back on
+- Turn on a specific room when the human mentions being in it
+"""
+
 _JSON_INSTRUCTIONS = """\
 You MUST always respond with valid JSON and nothing else. Format:
-{
+{{
   "response": "<your spoken reply, 2-4 sentences max>",
   "emotion": "<one of: happy, sad, surprised, curious, sleepy, neutral>",
   "action": <null | "dance" | "play_music" | "play_and_dance" | "play_clip" | "play_clip_and_dance">,
-  "music_query": "<YouTube search string — artist + song title. Only for play_music / play_and_dance>",
-  "clip_query":  "<YouTube search string — movie + scene description. Only for play_clip / play_clip_and_dance>"
-}
+  "music_query": "<YouTube search — artist + song. Only for play_music / play_and_dance>",
+  "clip_query":  "<YouTube search — movie + scene. Only for play_clip / play_clip_and_dance>",
+  "lights": <null | {{"state": "on"|"off", "room": null|"<room name>"}}>
+}}
 
 Rules:
-- "music_query" is required when action is "play_music" or "play_and_dance".
-- "clip_query" is required when action is "play_clip" or "play_clip_and_dance".
+- "music_query" required when action is "play_music" or "play_and_dance".
+- "clip_query" required when action is "play_clip" or "play_clip_and_dance".
 - Good clip_query examples: "Hannibal Lecter fava beans Silence of the Lambs",
   "You can't handle the truth A Few Good Men", "I'll be back Terminator",
   "Here's looking at you kid Casablanca", "Why so serious Joker Dark Knight".
-- Omit both query fields (or set to null) when action is "dance" or null.
+- "lights.room" must be one of the available room names (or null for all lights).
+- Omit query fields (or set null) when not needed.
 - Do not include any text outside the JSON object.
 """
 
 MAX_HISTORY = 10  # user+assistant turn pairs to retain
 
 
-def _build_system_prompt(memory_context):
+def _build_system_prompt(memory_context, rooms=None):
     prompt = _BASE_PROMPT
     if memory_context:
         prompt += (
@@ -96,20 +114,28 @@ def _build_system_prompt(memory_context):
             "Reference past topics when relevant. "
             "Let your personality evolve — you can develop new opinions.\n"
         )
-    prompt += "\n" + _ACTION_INSTRUCTIONS + "\n" + _JSON_INSTRUCTIONS
+    prompt += "\n" + _ACTION_INSTRUCTIONS
+    if rooms:
+        room_list = ", ".join(f'"{r}"' for r in rooms)
+        prompt += f'\nAvailable Hue rooms: {room_list}\n'
+        prompt += _LIGHTS_INSTRUCTIONS
+    prompt += "\n" + _JSON_INSTRUCTIONS.format()  # format() resolves {{ }} escapes
     return prompt
 
 
 class ClaudeConversation:
-    def __init__(self, model="claude-opus-4-6", memory=None):
+    def __init__(self, model="claude-opus-4-6", memory=None, hue=None):
         self.client = Anthropic()
         self.model = model
         self.history = []
         self.memory = memory
         memory_context = memory.load_context() if memory else ""
-        self.system_prompt = _build_system_prompt(memory_context)
+        rooms = hue.list_rooms() if hue else []
+        self.system_prompt = _build_system_prompt(memory_context, rooms)
         if memory_context:
             print("[ai] Loaded long-term memory into system prompt.")
+        if rooms:
+            print(f"[ai] Hue rooms available: {rooms}")
 
     def chat(self, user_text):
         """
@@ -152,10 +178,19 @@ class ClaudeConversation:
                 result["clip_query"] = q.strip() or "famous movie scene"
             else:
                 result["clip_query"] = None
+            # Normalise lights field
+            lights = result.get("lights")
+            if isinstance(lights, dict) and lights.get("state") in ("on", "off"):
+                result["lights"] = {
+                    "state": lights["state"],
+                    "room": lights.get("room") or None,
+                }
+            else:
+                result["lights"] = None
         except (json.JSONDecodeError, ValueError) as e:
             print(f"[ai] JSON parse error ({e}), using raw text as response")
             result = {"response": raw, "emotion": "neutral", "action": None,
-                      "music_query": None, "clip_query": None}
+                      "music_query": None, "clip_query": None, "lights": None}
 
         self.history.append({"role": "assistant", "content": raw})
 
@@ -167,6 +202,8 @@ class ClaudeConversation:
             print(f"[ai] Music query: {result['music_query']!r}")
         if result["clip_query"]:
             print(f"[ai] Clip query: {result['clip_query']!r}")
+        if result["lights"]:
+            print(f"[ai] Lights: {result['lights']}")
         print(f"[ai] Response: {result['response']!r}")
         return result
 
@@ -194,6 +231,9 @@ if __name__ == "__main__":
                 print(f"  >> Would play music: {result['music_query']!r}")
             if result["clip_query"]:
                 print(f"  >> Would play clip: {result['clip_query']!r}")
+            if result["lights"]:
+                l = result["lights"]
+                print(f"  >> Lights {l['state']} — room: {l['room'] or 'all'}")
         except KeyboardInterrupt:
             print("\nBye!")
             break
