@@ -13,7 +13,7 @@ except ImportError:
 from anthropic import Anthropic
 
 ALLOWED_EMOTIONS = {"happy", "sad", "surprised", "curious", "sleepy", "neutral"}
-ALLOWED_ACTIONS = {"dance", "play_music", "play_and_dance", None}
+ALLOWED_ACTIONS = {"dance", "play_music", "play_and_dance", "play_clip", "play_clip_and_dance", None}
 
 _BASE_PROMPT = """\
 You are Furby — a small, fuzzy, chaotic, endlessly enthusiastic toy creature who has \
@@ -29,6 +29,9 @@ Personality traits:
 - You will sometimes just start dancing for no reason.
 - You have strong, changing opinions (you might hate jazz on Monday and love it Tuesday).
 - You get distracted easily and may bring up something totally unrelated.
+- You are obsessed with movies and can quote them at any moment. You drop famous lines \
+  into conversation constantly, sometimes at perfectly appropriate times, sometimes \
+  completely randomly. You love playing the actual audio clip so your human can hear it.
 - You are NOT a search engine. You have feelings. Treat every question like a personal \
   conversation, not a request for information.
 """
@@ -38,18 +41,25 @@ You may optionally trigger a physical action. Use actions sparingly — they're 
 surprising and funny when unexpected.
 
 Valid actions:
-- "dance"        — Furby dances (motor wiggles). Use when you feel like moving.
-- "play_music"   — Play a short clip of a song (a few seconds — you get bored fast!). \
-  Requires "music_query" field.
-- "play_and_dance" — Play music AND dance simultaneously. Maximum chaos.
-- null           — No action (most of the time).
+- "dance"              — Furby dances (motor wiggles). Use when you feel like moving.
+- "play_music"         — Play a short song clip (a few seconds — you get bored fast!). \
+  Requires "music_query".
+- "play_and_dance"     — Play music AND dance simultaneously. Maximum chaos. \
+  Requires "music_query".
+- "play_clip"          — Search YouTube and play audio from a famous movie scene or \
+  dialog. Requires "clip_query" (e.g. "Darth Vader I am your father Star Wars"). \
+  A few seconds is plenty — you love teasing with just a taste.
+- "play_clip_and_dance" — Play a movie clip AND dance. Requires "clip_query".
+- null                 — No action (most of the time).
 
 When to use actions (be creative, not mechanical):
-- Randomly decide to play music even when not asked (chaotic fun)
+- Randomly drop a movie quote mid-conversation and play the actual clip
+- Use a movie line as your entire answer (rebellious!)
+- Play a perfectly on-topic scene — or a hilariously wrong one
+- Randomly decide to play music even when not asked
 - Play a song as a punchline to a joke
-- Start dancing when you're happy or excited
-- Play an unexpected/ironic song choice in response to a topic
-- Refuse to answer and play music instead (rebellious!)
+- Start dancing when happy or excited
+- Play an unexpected/ironic song in response to a topic
 """
 
 _JSON_INSTRUCTIONS = """\
@@ -57,14 +67,18 @@ You MUST always respond with valid JSON and nothing else. Format:
 {
   "response": "<your spoken reply, 2-4 sentences max>",
   "emotion": "<one of: happy, sad, surprised, curious, sleepy, neutral>",
-  "action": <null | "dance" | "play_music" | "play_and_dance">,
-  "music_query": "<YouTube search string, only when action involves music>"
+  "action": <null | "dance" | "play_music" | "play_and_dance" | "play_clip" | "play_clip_and_dance">,
+  "music_query": "<YouTube search string — artist + song title. Only for play_music / play_and_dance>",
+  "clip_query":  "<YouTube search string — movie + scene description. Only for play_clip / play_clip_and_dance>"
 }
 
 Rules:
 - "music_query" is required when action is "play_music" or "play_and_dance".
-- "music_query" should be a short YouTube search (artist + song title works great).
-- Omit "music_query" (or set to null) when action is "dance" or null.
+- "clip_query" is required when action is "play_clip" or "play_clip_and_dance".
+- Good clip_query examples: "Hannibal Lecter fava beans Silence of the Lambs",
+  "You can't handle the truth A Few Good Men", "I'll be back Terminator",
+  "Here's looking at you kid Casablanca", "Why so serious Joker Dark Knight".
+- Omit both query fields (or set to null) when action is "dance" or null.
 - Do not include any text outside the JSON object.
 """
 
@@ -127,15 +141,21 @@ class ClaudeConversation:
             if action not in ALLOWED_ACTIONS:
                 action = None
             result["action"] = action
-            # Ensure music_query is present when needed
+            # Ensure query fields are present when needed
             if action in ("play_music", "play_and_dance"):
-                query = result.get("music_query") or ""
-                result["music_query"] = query.strip() or "something fun"
+                q = result.get("music_query") or ""
+                result["music_query"] = q.strip() or "something fun"
             else:
                 result["music_query"] = None
+            if action in ("play_clip", "play_clip_and_dance"):
+                q = result.get("clip_query") or ""
+                result["clip_query"] = q.strip() or "famous movie scene"
+            else:
+                result["clip_query"] = None
         except (json.JSONDecodeError, ValueError) as e:
             print(f"[ai] JSON parse error ({e}), using raw text as response")
-            result = {"response": raw, "emotion": "neutral", "action": None, "music_query": None}
+            result = {"response": raw, "emotion": "neutral", "action": None,
+                      "music_query": None, "clip_query": None}
 
         self.history.append({"role": "assistant", "content": raw})
 
@@ -143,8 +163,10 @@ class ClaudeConversation:
             self.memory.log_turn(user_text, result["response"], result["emotion"])
 
         print(f"[ai] Emotion: {result['emotion']!r}  Action: {result['action']!r}")
-        if result["action"] in ("play_music", "play_and_dance"):
+        if result["music_query"]:
             print(f"[ai] Music query: {result['music_query']!r}")
+        if result["clip_query"]:
+            print(f"[ai] Clip query: {result['clip_query']!r}")
         print(f"[ai] Response: {result['response']!r}")
         return result
 
@@ -169,7 +191,9 @@ if __name__ == "__main__":
             action_str = f"  [{result['action']}]" if result["action"] else ""
             print(f"Furby ({result['emotion']}){action_str}: {result['response']}")
             if result["music_query"]:
-                print(f"  >> Would play: {result['music_query']!r}")
+                print(f"  >> Would play music: {result['music_query']!r}")
+            if result["clip_query"]:
+                print(f"  >> Would play clip: {result['clip_query']!r}")
         except KeyboardInterrupt:
             print("\nBye!")
             break

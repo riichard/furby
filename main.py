@@ -27,16 +27,18 @@ def check_env():
         sys.exit(1)
 
 
-def dispatch_action(action, music_query, expr, music):
-    """Fire off dance and/or music after Furby finishes speaking."""
+def dispatch_action(action, music_query, clip_query, expr, music):
+    """Fire off dance, music, and/or movie clip after Furby finishes speaking."""
     if action is None:
         return
 
     if action in ("play_music", "play_and_dance"):
         music.play(music_query)  # non-blocking
 
-    if action in ("dance", "play_and_dance"):
-        # Run dance in a thread so we don't block the listen loop
+    if action in ("play_clip", "play_clip_and_dance"):
+        music.play(clip_query)  # same mechanism — just a different search query
+
+    if action in ("dance", "play_and_dance", "play_clip_and_dance"):
         t = threading.Thread(target=expr.dance, daemon=True)
         t.start()
 
@@ -85,6 +87,7 @@ def main():
                 emotion = result["emotion"]
                 action = result["action"]
                 music_query = result["music_query"]
+                clip_query = result["clip_query"]
 
                 # 4. Synthesize TTS
                 tts_bytes = audio.synthesize(response_text)
@@ -96,7 +99,7 @@ def main():
                 expr.animate_speech(response_text, tts_bytes, emotion)
 
                 # 7. Post-speech action (dance / music / both)
-                dispatch_action(action, music_query, expr, music)
+                dispatch_action(action, music_query, clip_query, expr, music)
 
             except KeyboardInterrupt:
                 raise
