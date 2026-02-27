@@ -4,7 +4,8 @@
 import io
 import os
 import struct
-import time
+import subprocess
+import tempfile
 import wave
 
 try:
@@ -13,68 +14,127 @@ try:
 except ImportError:
     pass
 
-import numpy as np
 import pyaudio
 from openai import OpenAI
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-CHUNK_MS = 50          # recording chunk size in milliseconds
 SAMPLE_RATE = 16000    # Hz — Whisper works best at 16 kHz
 CHANNELS = 1
-FORMAT = pyaudio.paInt16
 BYTES_PER_SAMPLE = 2
 
-CHUNK_FRAMES = int(SAMPLE_RATE * CHUNK_MS / 1000)
+# ALSA device for recording (arecord -D <device>)
+# Uses plughw for automatic format conversion
+RECORD_DEVICE = os.getenv("FURBY_MIC_DEVICE", "plughw:1,0")
 
-# Voice Activity Detection thresholds
-RMS_THRESHOLD = 500    # RMS amplitude to consider "speech"
-SILENCE_TIMEOUT_S = 1.5   # seconds of silence before stopping recording
-MIN_SPEECH_S = 0.3        # minimum duration to keep a recording
+# Voice Activity Detection
+CHUNK_MS = 50
+CHUNK_FRAMES = int(SAMPLE_RATE * CHUNK_MS / 1000)
+RMS_THRESHOLD = 45         # fallback if calibration fails
+SILENCE_TIMEOUT_S = 1.5
+MIN_SPEECH_FRAMES = 10     # minimum chunks to consider a valid recording
+NOISE_CALIBRATION_S = 1.5  # seconds to sample ambient noise at startup
+SPEECH_RATIO = 3.0         # threshold = noise_floor * this multiplier
 
 
 class AudioIO:
     def __init__(self):
-        self.client = OpenAI()  # reads OPENAI_API_KEY from environment
+        self.client = OpenAI()
+        self.rms_threshold = self._calibrate_noise()
+
+    def _calibrate_noise(self):
+        """Sample ambient noise for NOISE_CALIBRATION_S seconds, set threshold."""
+        print("[voice] Calibrating noise floor (be quiet)...")
+        cmd = [
+            "arecord", "-D", RECORD_DEVICE,
+            "-f", "S16_LE", "-r", str(SAMPLE_RATE), "-c", str(CHANNELS),
+            "-q", "-",
+        ]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        bytes_per_chunk = CHUNK_FRAMES * BYTES_PER_SAMPLE * CHANNELS
+        n_chunks = int(NOISE_CALIBRATION_S * 1000 / CHUNK_MS)
+        rms_values = []
+        try:
+            for _ in range(n_chunks):
+                data = proc.stdout.read(bytes_per_chunk)
+                if data:
+                    rms_values.append(_rms(data))
+        finally:
+            proc.terminate()
+            proc.wait()
+
+        if not rms_values:
+            print(f"[voice] Noise calibration failed, using default threshold {RMS_THRESHOLD}")
+            return RMS_THRESHOLD
+
+        noise_floor = sum(rms_values) / len(rms_values)
+        threshold = max(RMS_THRESHOLD, noise_floor * SPEECH_RATIO)
+        print(f"[voice] Noise floor: {noise_floor:.1f}, speech threshold: {threshold:.1f}")
+        return threshold
 
     # ------------------------------------------------------------------
-    # Recording with VAD
+    # Recording via arecord (reliable on Pi with USB mic)
     # ------------------------------------------------------------------
+
+    def _beep(self, freq=880, duration_ms=120):
+        """Play a short beep through the speaker to signal ready-to-listen."""
+        import math
+        rate = 22050
+        n = int(rate * duration_ms / 1000)
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(rate)
+            samples = bytes(
+                struct.pack("<h", int(32767 * math.sin(2 * math.pi * freq * i / rate)))
+                for i in range(n)
+            )
+            wf.writeframes(samples)
+        self.play(buf.getvalue())
 
     def record_until_silence(self):
         """
-        Block until speech is detected, then record until 1.5s of silence.
-        Returns raw WAV bytes (16-bit, 16 kHz, mono).
+        Stream from mic via arecord, apply VAD, return WAV bytes when silence.
         """
-        pa = pyaudio.PyAudio()
-        stream = pa.open(
-            format=FORMAT,
-            channels=CHANNELS,
-            rate=SAMPLE_RATE,
-            input=True,
-            frames_per_buffer=CHUNK_FRAMES,
-        )
-
+        self._beep()
         print("[voice] Listening for speech...")
+
+        cmd = [
+            "arecord",
+            "-D", RECORD_DEVICE,
+            "-f", "S16_LE",
+            "-r", str(SAMPLE_RATE),
+            "-c", str(CHANNELS),
+            "-q",   # suppress arecord status messages
+            "-",    # output to stdout
+        ]
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
         frames = []
         speech_started = False
         silent_chunks = 0
         silent_chunks_needed = int(SILENCE_TIMEOUT_S * 1000 / CHUNK_MS)
+        bytes_per_chunk = CHUNK_FRAMES * BYTES_PER_SAMPLE * CHANNELS
 
         try:
             while True:
-                data = stream.read(CHUNK_FRAMES, exception_on_overflow=False)
+                data = proc.stdout.read(bytes_per_chunk)
+                if not data:
+                    break
+
                 rms = _rms(data)
 
                 if not speech_started:
-                    if rms > RMS_THRESHOLD:
+                    if rms > self.rms_threshold:
                         print("[voice] Speech detected, recording...")
                         speech_started = True
                         frames.append(data)
                 else:
                     frames.append(data)
-                    if rms < RMS_THRESHOLD:
+                    if rms < self.rms_threshold:
                         silent_chunks += 1
                         if silent_chunks >= silent_chunks_needed:
                             print("[voice] Silence detected, stopping.")
@@ -82,9 +142,14 @@ class AudioIO:
                     else:
                         silent_chunks = 0
         finally:
-            stream.stop_stream()
-            stream.close()
-            pa.terminate()
+            proc.terminate()
+            _, stderr = proc.communicate()
+            if stderr:
+                print(f"[voice] arecord: {stderr.decode().strip()}")
+
+        if len(frames) < MIN_SPEECH_FRAMES:
+            print("[voice] Recording too short, ignoring.")
+            return None
 
         return _frames_to_wav(frames)
 
@@ -95,7 +160,7 @@ class AudioIO:
     def transcribe(self, wav_bytes):
         """Send WAV bytes to Whisper API, return transcription string."""
         wav_file = io.BytesIO(wav_bytes)
-        wav_file.name = "audio.wav"  # required by openai client
+        wav_file.name = "audio.wav"
         result = self.client.audio.transcriptions.create(
             model="whisper-1",
             file=wav_file,
@@ -121,7 +186,7 @@ class AudioIO:
         return wav_bytes
 
     # ------------------------------------------------------------------
-    # Standalone playback (used when expressions.py handles playback separately)
+    # Playback via PyAudio
     # ------------------------------------------------------------------
 
     def play(self, wav_bytes):
@@ -151,11 +216,10 @@ class AudioIO:
 def _rms(data):
     """Compute RMS amplitude of a 16-bit PCM chunk."""
     count = len(data) // BYTES_PER_SAMPLE
-    shorts = struct.unpack(f"{count}h", data)
     if count == 0:
         return 0
-    sq_sum = sum(s * s for s in shorts)
-    return (sq_sum / count) ** 0.5
+    shorts = struct.unpack(f"{count}h", data)
+    return (sum(s * s for s in shorts) / count) ** 0.5
 
 
 def _frames_to_wav(frames):
@@ -174,9 +238,13 @@ def _frames_to_wav(frames):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     audio = AudioIO()
-    print("Recording — speak a sentence...")
-    wav = audio.record_until_silence()
-    print(f"Recorded {len(wav)} WAV bytes.")
+    while True:
+        print("Recording — speak a sentence...")
+        wav = audio.record_until_silence()
+        if wav:
+            print(f"Recorded {len(wav)} WAV bytes.")
+            break
+        print("Nothing captured, trying again...")
 
     text = audio.transcribe(wav)
     print(f"Transcription: {text}")

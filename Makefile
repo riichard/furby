@@ -29,7 +29,7 @@ test-ai:
 
 ## Run voice test on the Pi
 test-voice:
-	ssh $(HOST) "cd $(REMOTE) && $(PYTHON) voice.py"
+	ssh -t $(HOST) "cd $(REMOTE) && $(PYTHON) -u voice.py 2>/dev/null"
 
 ## Open SSH shell on the Pi
 ssh:

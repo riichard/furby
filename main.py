@@ -29,6 +29,11 @@ def main():
     check_env()
 
     print("[main] Initializing Furby hardware...")
+    try:
+        import RPi.GPIO as GPIO
+        GPIO.cleanup()
+    except Exception:
+        pass
     furby = Furby()
     furby.calibrate()
     print("[main] Calibration complete.")
@@ -46,6 +51,8 @@ def main():
         try:
             # 1. Listen until speech + silence
             wav_bytes = audio.record_until_silence()
+            if not wav_bytes:
+                continue
 
             # 2. Transcribe
             text = audio.transcribe(wav_bytes)

@@ -52,6 +52,12 @@ Commands:
 def main():
     # Import Furby — gracefully handle missing GPIO on non-Pi hardware
     try:
+        import RPi.GPIO as GPIO
+        GPIO.cleanup()
+    except Exception:
+        pass
+
+    try:
         from furby import Furby
         furby = Furby()
         print("[calibrate] Calibrating hardware...")

@@ -88,7 +88,7 @@ def stop_furby():
 
 
 def main():
-    print "starting"
+    print("starting")
     # Set up GPIO pins
     GPIO.setup(PWMA, GPIO.OUT) # Connected to PWMA 
     GPIO.setup(AIN2, GPIO.OUT) # Connected to AIN2
@@ -104,16 +104,16 @@ def main():
 
 def foo():
     if GPIO.input(sensor):
-        print "object detected"
+        print("object detected")
         while GPIO.input(sensor) is True:
             time.sleep(0.001)
-        print "end of ir gap"
+        print("end of ir gap")
         count+=1
-        print count
+        print(count)
         stop_furby()
         time.sleep(0.01)
     else:
-        print "no object detected"
+        print( "no object detected")
     time.sleep(0.0005)
     stop_furby()
     time.sleep(0.03)
@@ -208,7 +208,7 @@ class Furby:
 
 
     def irCallback(self, pin):
-        print "[" + str(self.pos)+"]",
+        print("[" + str(self.pos)+"]", end="")
         if self.maxPos < self.pos:
             self.maxPos = self.pos
 
@@ -357,64 +357,64 @@ if __name__ == '__main__':
         """
         
         print('---------------------------------------ready')
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
 
         f.moveTo(90)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
 
         f.moveTo(10)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         
         f.moveTo(90)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(10)
 
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(90)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(10)
         f.moveTo(90)
 
         for x in range(0, 100, 5):
-            raw_input("Press Enter to continue...")
+            input("Press Enter to continue...")
             f.moveTo(x)
 
         """
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(30)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         " Move from 30 to 10 didn't go as smoothly.
         " it went beyond the destination, while it was breaking, and pressed the reset button
         f.moveTo(10)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(20)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(30)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(40)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(50)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(60)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(70)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(80)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(90)
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(100)
         """
 
         print("testing talk mode")
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         for x in range(6):
             f.moveTo(80)
             f.moveTo(90)
             f.moveTo(10)
             f.moveTo(90)
 
-        raw_input("Press Enter to continue...")
+        input("Press Enter to continue...")
         f.moveTo(10)
 
         f.printMaxPos()
