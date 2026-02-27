@@ -51,15 +51,30 @@ EOF
 # ---------------------------------------------------------------------------
 # 3. Install system dependencies
 # ---------------------------------------------------------------------------
-echo "[3/4] Installing system packages..."
+echo "[3/5] Installing system packages..."
 sudo apt-get update -qq
-sudo apt-get install -y portaudio19-dev python3-pyaudio
+sudo apt-get install -y portaudio19-dev python3-pyaudio ffmpeg
 
 # ---------------------------------------------------------------------------
 # 4. Install Python dependencies
 # ---------------------------------------------------------------------------
-echo "[4/4] Installing Python packages..."
-pip3 install --break-system-packages anthropic openai pyyaml numpy python-dotenv
+echo "[4/5] Installing Python packages..."
+pip3 install --break-system-packages anthropic openai pyyaml numpy python-dotenv yt-dlp
+
+# ---------------------------------------------------------------------------
+# 5. Create memory directory and install nightly summarize cron job
+# ---------------------------------------------------------------------------
+echo "[5/5] Setting up memory directory and cron job..."
+
+FURBY_DIR="$(cd "$(dirname "$0")" && pwd)"
+mkdir -p "$FURBY_DIR/memory"
+
+# Install cron job: run summarize.py daily at 3am
+CRON_JOB="0 3 * * * cd $FURBY_DIR && python3 summarize.py >> $FURBY_DIR/memory/summarize.log 2>&1"
+# Add only if not already present
+( crontab -l 2>/dev/null | grep -v "summarize.py"; echo "$CRON_JOB" ) | crontab -
+echo "  Cron job installed: daily summarize at 3am"
+echo "  Verify with: crontab -l"
 
 # ---------------------------------------------------------------------------
 # Done
@@ -72,3 +87,4 @@ echo "  1. Copy your .env file:  scp .env furby:~/furby/.env"
 echo "  2. Reboot the Pi:        sudo reboot"
 echo "  3. Calibrate expressions: make calibrate"
 echo "  4. Run Furby:            make run"
+echo "  5. Manual memory summary: make summarize"

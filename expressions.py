@@ -81,6 +81,25 @@ class FurbyExpressionManager:
             self._idle_stop.wait(timeout=interval)
 
     # ------------------------------------------------------------------
+    # Dance
+    # ------------------------------------------------------------------
+
+    def dance(self, duration_s=5.0):
+        """Wiggle Furby rapidly — silly dance moves. Blocking; restores idle after."""
+        self.stop_idle()
+        end = time.time() + duration_s
+        # Alternating sweeps at random tempo — chaotic and fun
+        positions = [15, 85, 25, 75, 30, 70, 40, 60, 50, 20, 80]
+        while time.time() < end:
+            for pos in positions:
+                if time.time() >= end:
+                    break
+                with self._animation_lock:
+                    self.furby.moveTo(pos)
+                time.sleep(random.uniform(0.12, 0.30))
+        self.start_idle()
+
+    # ------------------------------------------------------------------
     # Lip sync
     # ------------------------------------------------------------------
 

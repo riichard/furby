@@ -94,3 +94,6 @@ tags
 # End of https://www.toptal.com/developers/gitignore/api/vim,pythonvanilla
 
 .env
+
+# Furby persistent memory — lives on the Pi, not in git
+memory/

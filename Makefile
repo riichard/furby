@@ -2,11 +2,12 @@ HOST      = furby
 REMOTE    = ~/furby
 PYTHON    = python3
 
-# Files/dirs to sync (excludes secrets, cache, git)
+# Files/dirs to sync (excludes secrets, cache, git, and Pi-local memory)
 RSYNC_OPTS = --archive --verbose --exclude='.git' --exclude='__pycache__' \
-             --exclude='*.pyc' --exclude='.env' --exclude='*.pdf'
+             --exclude='*.pyc' --exclude='.env' --exclude='*.pdf' \
+             --exclude='memory/'
 
-.PHONY: deploy run calibrate ssh log
+.PHONY: deploy run calibrate ssh log summarize
 
 ## Sync code to Pi (excludes .env — manage that separately on the Pi)
 deploy:
@@ -38,3 +39,7 @@ ssh:
 ## Tail the last run's output (if you background it)
 log:
 	ssh $(HOST) "tail -f $(REMOTE)/furby.log"
+
+## Run the memory summarizer on the Pi (also run nightly via cron)
+summarize:
+	ssh $(HOST) "cd $(REMOTE) && $(PYTHON) summarize.py"

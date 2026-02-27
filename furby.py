@@ -1,475 +1,178 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+"""furby.py — Low-level hardware driver for 1st-gen Furby on Raspberry Pi."""
 
-# Import required modules
-# from abc import update_abstractmethods
-import time
-import RPi.GPIO as GPIO
-import random
 import math
+import time
 
-def prepareBoard():
-    GPIO.cleanup()
+import RPi.GPIO as GPIO
 
-    # Declare the GPIO settings
-    GPIO.setmode(GPIO.BOARD)
+# ---------------------------------------------------------------------------
+# GPIO pin assignments (BOARD numbering)
+# ---------------------------------------------------------------------------
+AIN1      = 29  # Motor direction
+AIN2      = 31  # Motor direction
+PWMA      = 7   # Motor enable
+STDBY     = 13  # Motor standby
+IR        = 18  # IR position sensor
+CAL       = 36  # Calibration switch
+TONGUE    = 33  # Tongue button
+PWMA_TEST = 32  # PWM output (BCM12)
 
-    ## equivalent to BCM pin 25
-    sensor = 22
-
-    GPIO.setmode(GPIO.BOARD)
-    # GPIO.setup(sensor, GPIO.IN)
-
-
-    # Set the filename and path for the sound card in use (See: https://howchoo.com/g/mmnhmti2zjz/how-to-detect-that-audio-is-currently-being-output-in-linux-and-use-it-to-call-a-program#create-an-audio-output-monitor-script)
-    soundcard_status_file = '/proc/asound/card2/pcm0p/sub0/status'
-
-    # Turn off GPIO warnings caused by us declaring our pins outside of the start_furby and stop_furby functions
-    GPIO.setwarnings(True)
-
-clockwise = False
-
-AIN1 = 29 # PIN 5
-AIN2 = 31 # PIN 6
-PWMA = 7 # PIN 4
-STDBY = 13 # PIN 27
-IR = 18 # 24
-CAL = 36 # 16
-PWMA_TEST = 32 # PWM0 BCM12
-TONGUE = 33
-
-ir_ticks = 0
-def ir_callback(channel):
-    print("IR Tick")
-
-cal_ticks = 0
-def cal_callback(channel):
-    # cal_ticks+=1
-    print("CAL Tick: " + str(channel))
-
-def tongue_callback(channel):
-    print("TONGUE PRESSED")
-    pwm.ChangeDutyCycle(0)
-
-
-
-
-def start_furby():
-    if clockwise:
-        # Drive the motor clockwise
-        GPIO.output(AIN1, GPIO.HIGH) # Set AIN1
-        GPIO.output(AIN2, GPIO.LOW) # Set AIN2
-    else:
-        GPIO.output(AIN1, GPIO.LOW) # Set AIN1
-        GPIO.output(AIN2, GPIO.HIGH) # Set AIN2
-    # GPIO.output(29, GPIO.HIGH) # Set pin 5 to test functionality
-
-    # Set the motor speed
-    #GPIO.output(PWMA, GPIO.HIGH) # Set PWMA
-    # pwm.ChangeDutyCycle(50)
-    pwm.start(40)
-    #GPIO.output(PWMA_TEST, GPIO.HIGH) # Set AIN2
-
-    GPIO.add_event_detect(CAL,GPIO.RISING,callback=cal_callback, bouncetime=200) 
-    GPIO.add_event_detect(TONGUE,GPIO.RISING,callback=tongue_callback, bouncetime=200) 
-    GPIO.add_event_detect(IR,GPIO.RISING,callback=ir_callback, bouncetime=20) 
-
-    # Disable STBY (standby)
-    GPIO.output(STDBY, GPIO.HIGH)
-    print("Running")
-    time.sleep(1000)
-
-
-def stop_furby():
-    # Reset all the GPIO pins by setting them to LOW
-    GPIO.output(AIN1, GPIO.LOW) # Set AIN1
-    GPIO.output(AIN2, GPIO.LOW) # Set AIN2
-    GPIO.output(PWMA, GPIO.LOW) # Set PWMA
-    GPIO.output(STDBY, GPIO.LOW) # Set STBY
-
-
-def main():
-    print("starting")
-    # Set up GPIO pins
-    GPIO.setup(PWMA, GPIO.OUT) # Connected to PWMA 
-    GPIO.setup(AIN2, GPIO.OUT) # Connected to AIN2
-    GPIO.setup(AIN1, GPIO.OUT) # Connected to AIN1
-    GPIO.setup(STDBY, GPIO.OUT) # Connected to STBY
-
-    ## AIN2 / AIN1 seem broken. Testing if other IO works.
-    # GPIO.setup(29, GPIO.OUT) # Connected to AIN2 possibly, testing 
-
-    count = 0
-    start_furby()
-
-
-def foo():
-    if GPIO.input(sensor):
-        print("object detected")
-        while GPIO.input(sensor) is True:
-            time.sleep(0.001)
-        print("end of ir gap")
-        count+=1
-        print(count)
-        stop_furby()
-        time.sleep(0.01)
-    else:
-        print( "no object detected")
-    time.sleep(0.0005)
-    stop_furby()
-    time.sleep(0.03)
-
-    if count > 3:
-        time.sleep(3)
-        clockwise != clockwise
-        count = 0
-
-    stop_furby()
-
-    return
-    # Open file and check contents
-    with open(soundcard_status_file, 'r') as fh:
-        value = fh.read()
-        if value == 'RUNNING':
-            start_furby()
-        else:
-            stop_furby()
 
 class Furby:
     def __init__(self):
-        self.pos = 1
-        self.maxPos = 0
-        self.maxError = 30
-        self.speed = 70
-        self.clockwise = True
+        self.pos        = 1
+        self.maxPos     = 0
+        self.maxError   = 30
+        self.speed      = 70
+        self.clockwise  = True
         self.calibrated = False
-        self.calibrating = False
-        self.des = 0
-        self.desPerc = 0
+        self.des        = 0
+        self.desPerc    = 0
 
         GPIO.cleanup()
-
-        # Declare the GPIO settings
-        GPIO.setmode(GPIO.BOARD)
         GPIO.setmode(GPIO.BOARD)
 
-        # GPIO.setup(IR, GPIO.IN)
-        GPIO.setup(IR,GPIO.IN,pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(CAL,GPIO.IN,pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(TONGUE,GPIO.IN,pull_up_down=GPIO.PUD_UP)
-
+        GPIO.setup(IR,        GPIO.IN,  pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(CAL,       GPIO.IN,  pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(TONGUE,    GPIO.IN,  pull_up_down=GPIO.PUD_UP)
         GPIO.setup(PWMA_TEST, GPIO.OUT)
+        GPIO.setup(PWMA,      GPIO.OUT)
+        GPIO.setup(AIN1,      GPIO.OUT)
+        GPIO.setup(AIN2,      GPIO.OUT)
+        GPIO.setup(STDBY,     GPIO.OUT)
+
         self.pwm = GPIO.PWM(PWMA_TEST, 300)
 
-        GPIO.setup(PWMA, GPIO.OUT) # Connected to PWMA 
-        GPIO.setup(AIN2, GPIO.OUT) # Connected to AIN2
-        GPIO.setup(AIN1, GPIO.OUT) # Connected to AIN1
-        GPIO.setup(STDBY, GPIO.OUT) # Connected to STBY
+        GPIO.add_event_detect(CAL,    GPIO.RISING, callback=self._cal_callback,    bouncetime=200)
+        GPIO.add_event_detect(TONGUE, GPIO.RISING, callback=self._tongue_callback, bouncetime=200)
+        GPIO.add_event_detect(IR,     GPIO.RISING, callback=self._ir_callback)
 
-        GPIO.add_event_detect(CAL,GPIO.RISING,callback=self.calCallback, bouncetime=200) 
-        GPIO.add_event_detect(TONGUE,GPIO.RISING,callback=self.tongueCallback, bouncetime=200) 
-        GPIO.add_event_detect(IR,GPIO.RISING,callback=self.irCallback) 
+        self._set_direction(True)
 
-        self.setDirection(True)
+    # ------------------------------------------------------------------
+    # Motor primitives
+    # ------------------------------------------------------------------
 
     def start(self):
-        print("starting")
         GPIO.output(STDBY, GPIO.HIGH)
         self.pwm.start(self.speed)
 
     def stop(self):
-        print("stopping at ", self.pos)
-        print("-------------reached des ", self.des, self.desPerc, " by error of ", self.des - self.pos)
         self.pwm.stop()
         GPIO.output(STDBY, GPIO.LOW)
-        print("maxpos", self.maxPos)
 
-    def setDirection(self, clockwise):
+    def _set_direction(self, clockwise):
         if clockwise:
-            print("Setting direction clockwise")
-            GPIO.output(AIN1, GPIO.HIGH) # Set AIN1
-            GPIO.output(AIN2, GPIO.LOW) # Set AIN2
+            GPIO.output(AIN1, GPIO.HIGH)
+            GPIO.output(AIN2, GPIO.LOW)
         else:
-            print("Setting direction counter clockwise")
-            GPIO.output(AIN1, GPIO.LOW) # Set AIN1
-            GPIO.output(AIN2, GPIO.HIGH) # Set AIN2
+            GPIO.output(AIN1, GPIO.LOW)
+            GPIO.output(AIN2, GPIO.HIGH)
         self.clockwise = clockwise
-    
-    def setSpeed(self, speed): # 0 < speed < 100
+
+    def set_speed(self, speed):
         self.speed = speed
         self.pwm.ChangeDutyCycle(speed)
 
-    def calCallback(self, pin):
-        print('calibration pin pressed')
-        print("cal callback " + str(self.pos))
+    # ------------------------------------------------------------------
+    # GPIO callbacks
+    # ------------------------------------------------------------------
+
+    def _cal_callback(self, pin):
         self.calibrated = True
-        measuredPosition = self.pos
         self.pos = 0
-        print("-----POSITION-RESET----", measuredPosition)
 
-
-    def irCallback(self, pin):
-        print("[" + str(self.pos)+"]", end="")
+    def _ir_callback(self, pin):
         if self.maxPos < self.pos:
             self.maxPos = self.pos
+        self.pos += 1 if self.clockwise else -1
 
-        if self.clockwise:
-            self.pos += 1
-            """
-            if self.pos >= self.des:
-                print("reached destination of "+str(self.des))
-                self.stop()
-            """
-        else:
-            self.pos -= 1
-            """
-            if self.pos <= self.des:
-                print("reached destination of "+str(self.des))
-                self.stop()
-            """
+    def _tongue_callback(self, pin):
+        pass
 
+    # ------------------------------------------------------------------
+    # Movement
+    # ------------------------------------------------------------------
 
-    def tongueCallback(self, pin):
-        print("tongue callback")
+    def _move_up(self, des):
+        self._set_direction(True)
+        self.des = des
+        self.start()
+        while self.pos < des:
+            time.sleep(0.0001)
+        self.stop()
 
-    def moveDown(self, des):
-        print("moving down, "+str(des))
-        self.setDirection(False)
-
+    def _move_down(self, des):
+        self._set_direction(False)
         self.des = des
         self.start()
         while self.pos > des:
             time.sleep(0.0001)
         self.stop()
 
-    def moveUp(self, des):
-        print("moving up, "+str(des))
-        self.setDirection(True)
-        print("moving up")
-
-        self.des = des
-        self.start()
-        
-        while self.pos < des:
-            time.sleep(0.0001)
-        self.stop()
-        print("destination reached")
-
     def moveTo(self, angle):
-        # Calculate the destination based on the angle (percentile)
-        # and avoid exceeding the maximum position-error range
+        """Move dial to position angle (0–100%)."""
         des = min(
-            math.floor((self.maxPos/100)*angle),
-            (self.maxPos - self.maxError)
-        ) # TODO set maxError smarter based on better maxPos averaging
-
-        # With cal = cycle can move over the hinge that sets the position to 0
-        # Without cal = move will happen without going over the hinge
-        print('--------------moveto', angle, self.pos, des)
-        deltaWithoutCal = abs(self.pos - des)
-        deltaWithCal = min(
-            abs(((des + self.maxPos) - self.pos)), # angle80 -> angle10 = (100 + 10) - 80 = 30
-            abs(((self.maxPos + self.pos) - des)) # angle10 -> angle80 = (100 + 10) - 80 = 30
+            math.floor((self.maxPos / 100) * angle),
+            self.maxPos - self.maxError,
         )
-        print('delta with cal', deltaWithCal)
-        print('delta without cal', deltaWithoutCal)
         self.desPerc = angle
 
-        if deltaWithoutCal < deltaWithCal:
-            print("moving without cal")
+        delta_direct = abs(self.pos - des)
+        delta_wrap   = min(
+            abs((des + self.maxPos) - self.pos),
+            abs((self.maxPos + self.pos) - des),
+        )
+
+        if delta_direct <= delta_wrap:
             if des > self.pos:
-                self.moveUp(des)
+                self._move_up(des)
             else:
-                self.moveDown(des)
+                self._move_down(des)
         else:
-            print("moving with cal, ")
             if des < self.pos:
-                # make current pos negative based on maxpos
-                self.pos = self.pos - self.maxPos
-                # pos will reset to 0
-                # move up instead of down
-                self.moveUp(des)
-                print('finished moving up', self.pos)
+                self.pos -= self.maxPos
+                self._move_up(des)
             else:
-                # make des negative based on maxpos
-                nDes = des - self.maxPos
-                # pos will reset to 0
-                # move down instead of up
-                self.moveDown(nDes)
-                print('finished moving down', self.pos)
-        print('finished move to angle ', angle)
-                
+                self._move_down(des - self.maxPos)
 
-    def printMaxPos(self):
-        print(self.maxPos)
-
+    # ------------------------------------------------------------------
+    # Calibration
+    # ------------------------------------------------------------------
 
     def calibrate(self):
-        print("calibrating")
-        # self.pos = 0
+        """Spin one full cycle to measure maxPos, then settle at position 10."""
+        print("[furby] Calibrating...")
         self.des = 0
-        self.calibrating = True
-        self.setDirection(True)
+        self._set_direction(True)
         self.start()
         time.sleep(5)
         self.stop()
         time.sleep(1)
-        print("has max pos", self.maxPos)
-        self.moveTo(10)
-        self.moveTo(50)
-        self.moveTo(80)
-        self.moveTo(90)
-        self.moveTo(10)
-        self.calibrating = False
-        print('MaxPos =', self.maxPos)
-        print("==========CALIBRATED===========")
-        """
-        self.setDirection(False)
-        self.calibrated = False
-        time.sleep(0.01)
-        self.start()
-        while self.calibrated == False:
-            print("calibrating..")
-            time.sleep(0.01)
-        print("cal reached")
-        self.stop()
-        self.calibrated = False
-        """
+        # Exercise range to confirm positions
+        for angle in (10, 50, 80, 90, 10):
+            self.moveTo(angle)
+        print(f"[furby] Calibrated. MaxPos={self.maxPos}")
 
-if __name__ == '__main__':
+    def cleanup(self):
+        GPIO.cleanup()
+
+
+# ---------------------------------------------------------------------------
+# Manual test (run directly on Pi)
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
     try:
-        prepareBoard()
         f = Furby()
-
-        #f.start()
-        #time.sleep(10)
-        #f.stop()
         f.calibrate()
-        print("calibrate command finished")
-        print("wait..")
+        print(f"pos={f.pos}  maxPos={f.maxPos}")
 
-
-        print(f.pos, f.maxPos, f.des)
-        """
-        f.moveTo(30)
-        f.moveTo(1)
-        f.moveTo(60)
-        time.sleep(1)
-        """
-        
-        print('---------------------------------------ready')
-        input("Press Enter to continue...")
-
-        f.moveTo(90)
-        input("Press Enter to continue...")
-
-        f.moveTo(10)
-        input("Press Enter to continue...")
-        
-        f.moveTo(90)
-        input("Press Enter to continue...")
-        f.moveTo(10)
-
-        input("Press Enter to continue...")
-        f.moveTo(90)
-        input("Press Enter to continue...")
-        f.moveTo(10)
-        f.moveTo(90)
-
-        for x in range(0, 100, 5):
-            input("Press Enter to continue...")
-            f.moveTo(x)
-
-        """
-        input("Press Enter to continue...")
-        f.moveTo(30)
-        input("Press Enter to continue...")
-        " Move from 30 to 10 didn't go as smoothly.
-        " it went beyond the destination, while it was breaking, and pressed the reset button
-        f.moveTo(10)
-        input("Press Enter to continue...")
-        f.moveTo(20)
-        input("Press Enter to continue...")
-        f.moveTo(30)
-        input("Press Enter to continue...")
-        f.moveTo(40)
-        input("Press Enter to continue...")
-        f.moveTo(50)
-        input("Press Enter to continue...")
-        f.moveTo(60)
-        input("Press Enter to continue...")
-        f.moveTo(70)
-        input("Press Enter to continue...")
-        f.moveTo(80)
-        input("Press Enter to continue...")
-        f.moveTo(90)
-        input("Press Enter to continue...")
-        f.moveTo(100)
-        """
-
-        print("testing talk mode")
-        input("Press Enter to continue...")
-        for x in range(6):
-            f.moveTo(80)
-            f.moveTo(90)
-            f.moveTo(10)
-            f.moveTo(90)
-
-        input("Press Enter to continue...")
-        f.moveTo(10)
-
-        f.printMaxPos()
-
-        """
-        
-        
-        f.moveTo(1)
-        #time.sleep(1)
-        f.moveTo(60)
-        #time.sleep(1)
-        f.moveTo(90)
-        f.setSpeed(100)
-        for i in range(3):
-            f.moveTo(70)
-            f.moveTo(75)
-        f.moveTo(90)
-        f.setSpeed(30)
-        for i in range(3):
-            f.moveTo(20)
-            f.moveTo(15)
-        f.moveTo(100)
-
-        """
-
-
-        """
-        #r = random.randint(0,f.maxPos)
-        f.moveTo(r)
-        time.sleep(1)
-        f.calibrate()
-        f.moveTo(0)
-        time.sleep(1)
-        f.moveTo(100)
-        time.sleep(1)
-        f.moveTo(200)
-        """
-
-
-        #time.sleep(1)
-        #f.moveTo(10)
-        #time.sleep(1)
-        #f.moveTo(60)
-        # f.moveTo(30)
-        # f.moveTo(60)
-
-        
+        for angle in (10, 50, 90):
+            input(f"Press Enter to move to {angle}%...")
+            f.moveTo(angle)
 
     except KeyboardInterrupt:
-        print("Cleanup by keyboard interrupt")
-        GPIO.cleanup()
-    except Exception as e:
-        print("uncaught error")
-        print(e)
+        print("Interrupted.")
     finally:
-        print("Cleanup")
         GPIO.cleanup()
-
